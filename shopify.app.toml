@@ -4,7 +4,7 @@
 client_id = "REPLACE_WITH_YOUR_CLIENT_ID"
 name = "Order Text & Checkout Upsell"
 # Public URL of the webhook server (see README → "Deploy the webhook server").
-application_url = "https://REPLACE-WITH-YOUR-SERVER.onrender.com"
+application_url = "https://order-text-webhooks.onrender.com"
 embedded = false
 
 [build]
@@ -16,7 +16,7 @@ include_config_on_deploy = true
 scopes = "read_orders,write_orders"
 
 [auth]
-redirect_urls = ["https://REPLACE-WITH-YOUR-SERVER.onrender.com/auth/callback"]
+redirect_urls = ["https://order-text-webhooks.onrender.com/auth/callback"]
 
 [webhooks]
 api_version = "2026-10"
@@ -24,7 +24,7 @@ api_version = "2026-10"
   # Task 1 — fires every time a new order is created in the store.
   [[webhooks.subscriptions]]
   topics = ["orders/create"]
-  uri = "https://REPLACE-WITH-YOUR-SERVER.onrender.com/webhooks/orders/create"
+  uri = "https://order-text-webhooks.onrender.com/webhooks/orders/create"
 
 # Task 1 — app-owned metafield definition, created automatically on `shopify app deploy`.
 # Admin API reference: namespace "$app", key "random_text".
