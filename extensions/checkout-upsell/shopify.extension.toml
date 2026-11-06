@@ -1,6 +1,7 @@
 # Checkout UI extension configuration:
 # https://shopify.dev/docs/api/checkout-ui-extensions/latest/configuration
 api_version = "2026-10"
+uid = "42a78221-416b-44aa-07ba-7ad811835d0691422ded"
 
 [[extensions]]
 name = "Collection upsell"

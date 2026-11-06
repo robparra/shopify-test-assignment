@@ -123,7 +123,7 @@ npm run deploy             # releases app config (webhook + metafield definition
 ### 4. Install and configure in the store
 
 1. Partner/Dev Dashboard → your app → **Install app** on the dev store (scopes: `read_orders`, `write_orders`).
-2. Partner Dashboard → app → **API access → Protected customer data access**: request access (required for order webhooks; dev stores don't need review).
+2. Protected customer data: the webhook only needs **Level 1** (order data, no name/email/address fields). Custom-distribution apps and apps installed only on dev stores get it without review. If `shopify app deploy` rejects the `orders/create` subscription, either set the app's distribution to **Custom** for your store, or request it in Partner Dashboard → Apps → your app → **API access requests → Protected customer data access**.
 3. Admin → **Settings → Checkout → Customize** → *Add app block* → **Collection upsell** → set **Upsell collection** → **Save**.
 
 ### Local development
