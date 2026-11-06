@@ -9,7 +9,7 @@ import { createHmac } from "node:crypto";
 import { generateLoremIpsum, sentence } from "../src/lorem.js";
 import { isValidShopifyHmac } from "../src/hmac.js";
 import { createAdminClient, isValidShopDomain } from "../src/shopify-admin.js";
-import { handleOrderCreated, createDefinitionPinner } from "../src/orders-create.js";
+import { handleOrderCreated } from "../src/orders-create.js";
 import { createApp } from "../src/app.js";
 
 const SECRET = "test_secret";
@@ -118,52 +118,10 @@ describe("handleOrderCreated", () => {
   });
 });
 
-describe("createDefinitionPinner", () => {
-  const fakeAdmin = (definition, pinErrors = []) => {
-    const calls = [];
-    return {
-      calls,
-      graphql: async (_shop, query, variables) => {
-        calls.push({ query, variables });
-        if (query.includes("metafieldDefinitionPin")) {
-          return { metafieldDefinitionPin: { pinnedDefinition: { id: definition.id }, userErrors: pinErrors } };
-        }
-        return { metafieldDefinition: definition };
-      },
-    };
-  };
-
-  test("pins an unpinned definition once per shop", async () => {
-    const admin = fakeAdmin({ id: "gid://shopify/MetafieldDefinition/1", pinnedPosition: null });
-    const ensurePinned = createDefinitionPinner({ admin, config });
-
-    assert.equal(await ensurePinned(SHOP), "pinned");
-    assert.equal(await ensurePinned(SHOP), "cached");
-    assert.equal(admin.calls.length, 2);
-    assert.deepEqual(admin.calls[0].variables.identifier, { ownerType: "ORDER", namespace: "$app", key: "random_text" });
-    assert.equal(admin.calls[1].variables.definitionId, "gid://shopify/MetafieldDefinition/1");
-  });
-
-  test("does not re-pin an already pinned definition", async () => {
-    const admin = fakeAdmin({ id: "gid://shopify/MetafieldDefinition/1", pinnedPosition: 3 });
-    assert.equal(await createDefinitionPinner({ admin, config })(SHOP), "already-pinned");
-    assert.equal(admin.calls.length, 1);
-  });
-
-  test("reports errors and retries on the next order", async () => {
-    const admin = fakeAdmin({ id: "gid://shopify/MetafieldDefinition/1", pinnedPosition: null }, [{ message: "limit" }]);
-    const ensurePinned = createDefinitionPinner({ admin, config });
-    await assert.rejects(ensurePinned(SHOP), /limit/);
-    await assert.rejects(ensurePinned(SHOP), /limit/);
-    assert.equal(admin.calls.length, 4);
-  });
-});
-
 describe("HTTP endpoint", () => {
   let server;
   let baseUrl;
   const writes = [];
-  const pinCalls = [];
   let failNext = false;
 
   before(async () => {
@@ -177,8 +135,7 @@ describe("HTTP endpoint", () => {
         return { metafieldsSet: { metafields: [{}], userErrors: [] } };
       },
     };
-    const ensurePinned = async (shop) => (pinCalls.push(shop), "pinned");
-    server = createServer(createApp({ config, admin, logger: silentLogger, ensurePinned }));
+    server = createServer(createApp({ config, admin, logger: silentLogger }));
     await new Promise((resolve) => server.listen(0, resolve));
     baseUrl = `http://127.0.0.1:${server.address().port}`;
   });
@@ -218,7 +175,6 @@ describe("HTTP endpoint", () => {
     assert.equal(writes.length, 1);
     assert.equal(writes[0].ownerId, "gid://shopify/Order/7");
     assert.ok(writes[0].value.length > 20);
-    assert.deepEqual(pinCalls, [SHOP], "definition pin is requested after a successful write");
   });
 
   test("answers 500 on failure so Shopify retries", async () => {

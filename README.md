@@ -50,12 +50,11 @@ No extra libraries: the webhook server uses **only Node.js built-ins** (`node:ht
    - skips duplicate deliveries using `X-Shopify-Event-Id` (Shopify delivers *at least once*);
    - generates 1–3 random Lorem Ipsum paragraphs (`crypto.randomInt`);
    - calls the Admin GraphQL `metafieldsSet` mutation on the order's `admin_graphql_api_id`;
-   - answers `200`, or `500` on failure so **Shopify retries automatically**;
-   - pins the metafield definition once per shop (`metafieldDefinitionPin`), so the value is visible on the order page without extra admin setup.
+   - answers `200`, or `500` on failure so **Shopify retries automatically**.
 
 **Authentication without a database.** The server obtains Admin API tokens with the [client credentials grant](https://shopify.dev/docs/apps/build/authentication-authorization/client-credentials-grant) (available when the app and the store belong to the same organization, which is the case for a dev store created from the Partner/Dev Dashboard). Tokens are cached in memory per shop and refreshed before they expire (24 h). If needed, a static `SHOPIFY_ADMIN_ACCESS_TOKEN` can be provided instead.
 
-**Where to see the result:** Admin → Orders → open an order → *Metafields* section → **Random text** (pinned automatically after the first order). Or via GraphQL:
+**Where to see the result:** Admin → Orders → open an order → *Metafields* section → **Random text**. Or via GraphQL:
 
 ```graphql
 { order(id: "gid://shopify/Order/123") { metafield(namespace: "$app", key: "random_text") { value } } }
@@ -133,7 +132,7 @@ npm run deploy             # releases app config (webhook + metafield definition
 cp .env.example .env       # fill SHOPIFY_API_KEY / SHOPIFY_API_SECRET
 npm start                  # webhook server on http://localhost:3000
 npm run dev                # Shopify CLI: preview the checkout extension
-npm test                   # 29 unit/integration tests, built-in node:test
+npm test                   # 26 unit/integration tests, built-in node:test
 ```
 
 Trigger a test webhook: `shopify app webhook trigger --topic orders/create --address https://<your-server>/webhooks/orders/create` (note: the sample payload references a non-existent order, so the metafield write will fail — create a real order to test end to end).
