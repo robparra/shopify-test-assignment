@@ -1,0 +1,40 @@
+# Checkout UI extension configuration:
+# https://shopify.dev/docs/api/checkout-ui-extensions/latest/configuration
+api_version = "2026-10"
+
+[[extensions]]
+name = "Collection upsell"
+handle = "checkout-upsell"
+type = "ui_extension"
+description = "Shows 2 products from a merchant-selected collection, skipping products already in the cart."
+
+[[extensions.targeting]]
+module = "./src/Checkout.jsx"
+target = "purchase.checkout.block.render"
+# Placed under the line items by default; merchants can move it in the Checkout editor.
+default_placement = "ORDER_SUMMARY1"
+
+[extensions.capabilities]
+# Required to query the Storefront API (collection products) via `shopify.query`.
+api_access = true
+
+# Settings shown in the Checkout editor (Checkout customizer).
+# Checkout UI extension settings do not support a collection picker type, so the merchant
+# provides the collection as a handle, URL or ID (all formats are accepted).
+[extensions.settings]
+
+  [[extensions.settings.fields]]
+  key = "collection"
+  type = "single_line_text_field"
+  name = "Upsell collection"
+  description = "Collection used as the source of upsell products. Paste its handle (e.g. summer-sale), its URL, or its ID."
+
+  [[extensions.settings.fields]]
+  key = "heading"
+  type = "single_line_text_field"
+  name = "Heading"
+  description = "Optional title shown above the products. Defaults to “You might also like”."
+
+    [[extensions.settings.fields.validations]]
+    name = "max"
+    value = "60"

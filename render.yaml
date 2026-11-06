@@ -1,0 +1,15 @@
+# One-click deploy of the webhook server on Render (free plan works).
+# Render → New → Blueprint → select this repository.
+services:
+  - type: web
+    name: order-text-webhooks
+    runtime: node
+    plan: free
+    buildCommand: "true"           # No npm dependencies are needed at runtime.
+    startCommand: node server/src/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: SHOPIFY_API_KEY
+        sync: false
+      - key: SHOPIFY_API_SECRET
+        sync: false

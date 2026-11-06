@@ -1,0 +1,12 @@
+{
+  "heading": "También te puede interesar",
+  "add": "Agregar",
+  "addAccessibilityLabel": "Agregar {{title}} a tu pedido",
+  "addError": "No se pudo agregar este producto. Inténtalo de nuevo.",
+  "editor": {
+    "unconfigured": "Selecciona la colección de origen en la configuración de este bloque (handle, URL o ID).",
+    "invalid": "El valor de la colección no es válido. Usa el handle, la URL o el ID de la colección.",
+    "notFound": "No se encontró la colección o no está disponible en el canal de ventas.",
+    "error": "No se pudo cargar la colección. Revisa la consola del navegador."
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "order-text-checkout-upsell",
+  "private": true,
+  "version": "1.0.0",
+  "license": "UNLICENSED",
+  "description": "Shopify app: orders/create webhook that writes a random-text metafield + a collection-driven checkout upsell (Checkout UI Extensions).",
+  "type": "module",
+  "workspaces": [
+    "extensions/*"
+  ],
+  "engines": {
+    "node": ">=20.10"
+  },
+  "scripts": {
+    "start": "node server/src/index.js",
+    "test": "node --test \"server/test/*.test.js\" \"extensions/*/tests/*.test.js\"",
+    "dev": "shopify app dev",
+    "deploy": "shopify app deploy",
+    "config:link": "shopify app config link"
+  },
+  "devDependencies": {
+    "@shopify/cli": "^3.69.0"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "heading": "You might also like",
+  "add": "Add",
+  "addAccessibilityLabel": "Add {{title}} to your order",
+  "addError": "This product couldn't be added. Please try again.",
+  "editor": {
+    "unconfigured": "Select the source collection in this block's settings (collection handle, URL or ID).",
+    "invalid": "The collection value is not valid. Use a collection handle, URL or ID.",
+    "notFound": "Collection not found, or it isn't available on the Online Store / Headless sales channel.",
+    "error": "The collection could not be loaded. Check the browser console for details."
+  }
+}
