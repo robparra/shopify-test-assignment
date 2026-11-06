@@ -14,7 +14,7 @@ export const config = Object.freeze({
   /** Optional static Admin API token. When absent, the client credentials grant is used. */
   adminAccessToken: process.env.SHOPIFY_ADMIN_ACCESS_TOKEN ?? "",
   apiVersion: process.env.SHOPIFY_API_VERSION ?? "2026-10",
-  metafieldNamespace: process.env.METAFIELD_NAMESPACE ?? "$app",
+  metafieldNamespace: process.env.METAFIELD_NAMESPACE ?? "custom",
   metafieldKey: process.env.METAFIELD_KEY ?? "random_text",
 });
 

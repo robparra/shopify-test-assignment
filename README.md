@@ -4,7 +4,7 @@ A Shopify app with two parts:
 
 | Task | What it does | Where |
 |------|--------------|-------|
-| **1. `orders/create` webhook** | Generates a random Lorem Ipsum text for every new order and saves it in the order metafield `$app.random_text` (`multi_line_text_field`). | [`server/`](server), [`shopify.app.toml`](shopify.app.toml) |
+| **1. `orders/create` webhook** | Generates a random Lorem Ipsum text for every new order and saves it in the order metafield `custom.random_text` (`multi_line_text_field`, pinned so it shows on the order page). | [`server/`](server), [`shopify.app.toml`](shopify.app.toml) |
 | **2. Checkout upsell block** | Checkout UI Extension that shows 2 products from a merchant-selected collection, in collection order, with an **Add** button, skipping/replacing products already in the cart. | [`extensions/checkout-upsell/`](extensions/checkout-upsell) |
 
 No extra libraries: the webhook server uses **only Node.js built-ins** (`node:http`, `node:crypto`, global `fetch`), and the extension uses only the packages Shopify's official template requires (`preact`, `@preact/signals`, `@shopify/ui-extensions`). Tests use the built-in `node:test` runner.
@@ -15,7 +15,7 @@ No extra libraries: the webhook server uses **only Node.js built-ins** (`node:ht
 
 ```
 .
-├── shopify.app.toml                  # App config: scopes, orders/create subscription, metafield definition
+├── shopify.app.toml                  # App config: scopes, orders/create subscription
 ├── render.yaml                       # Optional one-click hosting for the webhook server
 ├── server/
 │   ├── src/
@@ -42,12 +42,13 @@ No extra libraries: the webhook server uses **only Node.js built-ins** (`node:ht
 
 **Flow**
 
-1. `shopify.app.toml` declares the subscription (`[[webhooks.subscriptions]] topics = ["orders/create"]`) and an **app-owned metafield definition** (`[order.metafields.app.random_text]`). Both are created automatically by `shopify app deploy` — no manual setup in the admin.
+1. `shopify.app.toml` declares the subscription (`[[webhooks.subscriptions]] topics = ["orders/create"]`), created by `shopify app deploy`.
 2. Shopify `POST`s the order to `/webhooks/orders/create`.
 3. The server:
    - verifies `X-Shopify-Hmac-Sha256` over the **raw body** with the app secret (timing-safe compare);
    - validates the topic and `X-Shopify-Shop-Domain` (`*.myshopify.com` only);
    - skips duplicate deliveries using `X-Shopify-Event-Id` (Shopify delivers *at least once*);
+   - on the first order of a shop, makes sure the metafield definition `custom.random_text` exists and is **pinned** (`metafieldDefinitionCreate` with `pin: true`), so the value shows on the order page with no manual admin setup;
    - generates 1–3 random Lorem Ipsum paragraphs (`crypto.randomInt`);
    - calls the Admin GraphQL `metafieldsSet` mutation on the order's `admin_graphql_api_id`;
    - answers `200`, or `500` on failure so **Shopify retries automatically**.
@@ -56,11 +57,11 @@ No extra libraries: the webhook server uses **only Node.js built-ins** (`node:ht
 
 **Where to see the result:** Admin → Orders → open an order → *Metafields* section → **Random text**. Or via GraphQL:
 
-> The admin only shows *pinned* definitions on the order page. Definitions declared in `shopify.app.toml` can't be pinned through the API (`"Definition is managed by app configuration"`), so it was pinned once from Settings → Metafields and metaobjects → Orders (pin icon in the table).
-
 ```graphql
-{ order(id: "gid://shopify/Order/123") { metafield(namespace: "$app", key: "random_text") { value } } }
+{ order(id: "gid://shopify/Order/123") { metafield(namespace: "custom", key: "random_text") { value } } }
 ```
+
+> **Why the definition isn't declared in `shopify.app.toml`.** Declarative (app-config) definitions are the first choice, but the admin hides them from *Settings → Metafields* and they can't be pinned through the API (`"Definition is managed by app configuration"`). Since the admin only displays *pinned* definitions on the order page, the value would be saved but invisible to the merchant. Creating a pinned `custom` definition from the server keeps everything automatic and visible.
 
 ## Task 2 — Checkout upsell (Checkout UI Extensions)
 
@@ -119,7 +120,7 @@ Any Node host works (Render, Railway, Fly.io, a VPS…). With Render:
 Replace `REPLACE-WITH-YOUR-SERVER.onrender.com` in [`shopify.app.toml`](shopify.app.toml) with your server's host, then:
 
 ```bash
-npm run deploy             # releases app config (webhook + metafield definition) and the extension
+npm run deploy             # releases app config (webhook subscription) and the extension
 ```
 
 ### 4. Install and configure in the store
@@ -134,7 +135,7 @@ npm run deploy             # releases app config (webhook + metafield definition
 cp .env.example .env       # fill SHOPIFY_API_KEY / SHOPIFY_API_SECRET
 npm start                  # webhook server on http://localhost:3000
 npm run dev                # Shopify CLI: preview the checkout extension
-npm test                   # 26 unit/integration tests, built-in node:test
+npm test                   # 31 unit/integration tests, built-in node:test
 ```
 
 Trigger a test webhook: `shopify app webhook trigger --topic orders/create --address https://<your-server>/webhooks/orders/create` (note: the sample payload references a non-existent order, so the metafield write will fail — create a real order to test end to end).

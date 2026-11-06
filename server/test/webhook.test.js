@@ -9,7 +9,7 @@ import { createHmac } from "node:crypto";
 import { generateLoremIpsum, sentence } from "../src/lorem.js";
 import { isValidShopifyHmac } from "../src/hmac.js";
 import { createAdminClient, isValidShopDomain } from "../src/shopify-admin.js";
-import { handleOrderCreated } from "../src/orders-create.js";
+import { handleOrderCreated, createDefinitionEnsurer } from "../src/orders-create.js";
 import { createApp } from "../src/app.js";
 
 const SECRET = "test_secret";
@@ -19,7 +19,7 @@ const config = {
   apiSecret: SECRET,
   adminAccessToken: "",
   apiVersion: "2026-10",
-  metafieldNamespace: "$app",
+  metafieldNamespace: "custom",
   metafieldKey: "random_text",
 };
 const sign = (body) => createHmac("sha256", SECRET).update(body).digest("base64");
@@ -103,7 +103,7 @@ describe("handleOrderCreated", () => {
     assert.match(captured.query, /metafieldsSet/);
     assert.deepEqual(captured.variables.metafields[0], {
       ownerId: "gid://shopify/Order/42",
-      namespace: "$app",
+      namespace: "custom",
       key: "random_text",
       type: "multi_line_text_field",
       value: "Lorem ipsum.",
@@ -118,10 +118,64 @@ describe("handleOrderCreated", () => {
   });
 });
 
+describe("createDefinitionEnsurer", () => {
+  const fakeAdmin = ({ existing = null, createErrors = [], pinErrors = [] } = {}) => {
+    const calls = [];
+    return {
+      calls,
+      graphql: async (_shop, query, variables) => {
+        calls.push({ query, variables });
+        if (query.includes("metafieldDefinitionCreate")) {
+          return { metafieldDefinitionCreate: { createdDefinition: { id: "gid://shopify/MetafieldDefinition/9" }, userErrors: createErrors } };
+        }
+        if (query.includes("metafieldDefinitionPin")) {
+          return { metafieldDefinitionPin: { pinnedDefinition: { id: existing.id }, userErrors: pinErrors } };
+        }
+        return { metafieldDefinition: existing };
+      },
+    };
+  };
+
+  test("creates a pinned custom.random_text definition when missing, once per shop", async () => {
+    const admin = fakeAdmin();
+    const ensure = createDefinitionEnsurer({ admin, config });
+
+    assert.equal(await ensure(SHOP), "created");
+    assert.equal(await ensure(SHOP), "cached");
+    assert.equal(admin.calls.length, 2);
+    assert.deepEqual(admin.calls[0].variables.identifier, { ownerType: "ORDER", namespace: "custom", key: "random_text" });
+    const { definition } = admin.calls[1].variables;
+    assert.equal(definition.pin, true);
+    assert.equal(definition.type, "multi_line_text_field");
+    assert.equal(definition.ownerType, "ORDER");
+  });
+
+  test("pins an existing unpinned definition", async () => {
+    const admin = fakeAdmin({ existing: { id: "gid://shopify/MetafieldDefinition/1", pinnedPosition: null } });
+    assert.equal(await createDefinitionEnsurer({ admin, config })(SHOP), "pinned");
+    assert.equal(admin.calls[1].variables.definitionId, "gid://shopify/MetafieldDefinition/1");
+  });
+
+  test("does nothing when the definition is already pinned", async () => {
+    const admin = fakeAdmin({ existing: { id: "gid://shopify/MetafieldDefinition/1", pinnedPosition: 1 } });
+    assert.equal(await createDefinitionEnsurer({ admin, config })(SHOP), "exists");
+    assert.equal(admin.calls.length, 1);
+  });
+
+  test("tolerates a concurrent create (TAKEN) and reports other errors", async () => {
+    const taken = fakeAdmin({ createErrors: [{ code: "TAKEN", message: "Key is in use" }] });
+    assert.equal(await createDefinitionEnsurer({ admin: taken, config })(SHOP), "created");
+
+    const failing = fakeAdmin({ createErrors: [{ code: "INVALID", message: "bad" }] });
+    await assert.rejects(createDefinitionEnsurer({ admin: failing, config })(SHOP), /bad/);
+  });
+});
+
 describe("HTTP endpoint", () => {
   let server;
   let baseUrl;
   const writes = [];
+  const definitionCalls = [];
   let failNext = false;
 
   before(async () => {
@@ -135,7 +189,8 @@ describe("HTTP endpoint", () => {
         return { metafieldsSet: { metafields: [{}], userErrors: [] } };
       },
     };
-    server = createServer(createApp({ config, admin, logger: silentLogger }));
+    const ensureDefinition = async (shop) => (definitionCalls.push(shop), "created");
+    server = createServer(createApp({ config, admin, logger: silentLogger, ensureDefinition }));
     await new Promise((resolve) => server.listen(0, resolve));
     baseUrl = `http://127.0.0.1:${server.address().port}`;
   });
@@ -175,6 +230,29 @@ describe("HTTP endpoint", () => {
     assert.equal(writes.length, 1);
     assert.equal(writes[0].ownerId, "gid://shopify/Order/7");
     assert.ok(writes[0].value.length > 20);
+    assert.ok(definitionCalls.includes(SHOP), "definition is ensured before writing");
+  });
+
+  test("still saves the value when the definition setup fails", async () => {
+    const admin = {
+      graphql: async (_shop, _query, variables) => {
+        writes.push(variables.metafields[0]);
+        return { metafieldsSet: { metafields: [{}], userErrors: [] } };
+      },
+    };
+    const failing = createServer(
+      createApp({ config, admin, logger: silentLogger, ensureDefinition: async () => { throw new Error("nope"); } }),
+    );
+    await new Promise((resolve) => failing.listen(0, resolve));
+    const body = JSON.stringify({ id: 11 });
+    const res = await fetch(`http://127.0.0.1:${failing.address().port}/webhooks/orders/create`, {
+      method: "POST",
+      headers: { "X-Shopify-Hmac-Sha256": sign(body), "X-Shopify-Shop-Domain": SHOP, "X-Shopify-Topic": "orders/create" },
+      body,
+    });
+    failing.close();
+    assert.equal(res.status, 200);
+    assert.equal(writes.at(-1).ownerId, "gid://shopify/Order/11");
   });
 
   test("answers 500 on failure so Shopify retries", async () => {

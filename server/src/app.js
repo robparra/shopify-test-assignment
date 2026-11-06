@@ -7,12 +7,17 @@
  */
 import { isValidShopifyHmac } from "./hmac.js";
 import { isValidShopDomain } from "./shopify-admin.js";
-import { handleOrderCreated } from "./orders-create.js";
+import { handleOrderCreated, createDefinitionEnsurer } from "./orders-create.js";
 
 const MAX_BODY_BYTES = 1024 * 1024; // Order payloads are far below 1 MB.
 const PROCESSED_EVENTS_LIMIT = 1000;
 
-export function createApp({ config, admin, logger = console }) {
+export function createApp({
+  config,
+  admin,
+  logger = console,
+  ensureDefinition = createDefinitionEnsurer({ admin, config }),
+}) {
   // Shopify delivers webhooks "at least once": remember recent event ids so a duplicate
   // delivery does not overwrite the text that was already generated for the order.
   const processedEvents = new Set();
@@ -63,6 +68,12 @@ export function createApp({ config, admin, logger = console }) {
     // 3. Processing takes well under Shopify's 5 s timeout, so it runs before replying:
     //    on failure we answer 500 and Shopify retries the delivery automatically.
     try {
+      // Best effort: a missing definition never blocks saving the value itself.
+      await ensureDefinition(shop)
+        .then((status) => ["created", "pinned"].includes(status) &&
+          logger.log(`[orders/create] Metafield definition ${status} (${shop})`))
+        .catch((error) => logger.error(`[orders/create] Could not set up metafield definition: ${error.message}`));
+
       const { ownerId } = await handleOrderCreated({ shop, order }, { admin, config });
       if (eventId) rememberEvent(eventId);
       logger.log(`[orders/create] Saved random text metafield on ${ownerId} (${shop})`);
