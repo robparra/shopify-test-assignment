@@ -9,7 +9,6 @@ embedded = false
 
 [build]
 automatically_update_urls_on_dev = false
-include_config_on_deploy = true
 
 [access_scopes]
 # read_orders/write_orders → receive orders/create and write the order metafield.

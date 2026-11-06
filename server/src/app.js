@@ -7,12 +7,12 @@
  */
 import { isValidShopifyHmac } from "./hmac.js";
 import { isValidShopDomain } from "./shopify-admin.js";
-import { handleOrderCreated } from "./orders-create.js";
+import { handleOrderCreated, createDefinitionPinner } from "./orders-create.js";
 
 const MAX_BODY_BYTES = 1024 * 1024; // Order payloads are far below 1 MB.
 const PROCESSED_EVENTS_LIMIT = 1000;
 
-export function createApp({ config, admin, logger = console }) {
+export function createApp({ config, admin, logger = console, ensurePinned = createDefinitionPinner({ admin, config }) }) {
   // Shopify delivers webhooks "at least once": remember recent event ids so a duplicate
   // delivery does not overwrite the text that was already generated for the order.
   const processedEvents = new Set();
@@ -66,7 +66,12 @@ export function createApp({ config, admin, logger = console }) {
       const { ownerId } = await handleOrderCreated({ shop, order }, { admin, config });
       if (eventId) rememberEvent(eventId);
       logger.log(`[orders/create] Saved random text metafield on ${ownerId} (${shop})`);
-      return send(res, 200, "OK");
+      send(res, 200, "OK");
+      // After replying: make the metafield visible on the order page (best effort).
+      ensurePinned(shop)
+        .then((status) => status === "pinned" && logger.log(`[orders/create] Pinned metafield definition (${shop})`))
+        .catch((error) => logger.error(`[orders/create] Could not pin metafield definition: ${error.message}`));
+      return;
     } catch (error) {
       logger.error(`[orders/create] Failed for ${shop}: ${error.message}`);
       return send(res, 500, "Processing failed");
