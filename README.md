@@ -92,7 +92,7 @@ Target `purchase.checkout.block.render` (default placement: order summary, movab
 ### Prerequisites
 
 - Node.js ≥ 20.10 and [Shopify CLI](https://shopify.dev/docs/api/shopify-cli) (installed as a dev dependency).
-- A Partner account and a **development store with Shopify Plus features enabled** (Partners → Stores → Add store → Create development store → *Shopify Plus*).
+- A Partner account and a **dev store on the Plus plan**: Dev Dashboard → Stores → Create store → **Dev** → plan **Plus** (or `shopify store create dev --plan plus`). Don't use a *client transfer store*: custom/draft apps can't be installed there.
 
 ### 1. Install and link the app
 
