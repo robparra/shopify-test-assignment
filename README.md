@@ -110,7 +110,7 @@ Any Node host works (Render, Railway, Fly.io, a VPS…). With Render:
 3. Set `SHOPIFY_API_KEY` and `SHOPIFY_API_SECRET` (app → *Settings* → Client ID / Client secret).
 4. Check `https://<your-service>.onrender.com/health` returns *"webhook server is running"*.
 
-> Render's free plan sleeps after inactivity; the first webhook after a cold start can time out, but Shopify retries it and the retry succeeds. Use a paid instance for production.
+> Render's free plan sleeps after 15 min of inactivity. To keep it always awake, a free monitor ([cron-job.org](https://cron-job.org) / [UptimeRobot](https://uptimerobot.com)) pings `/health` every 10 minutes (750 free hours/month cover a single service 24/7). As a safety net, if a delivery ever hits a cold start, Shopify retries it automatically (up to 8 times over 4 hours) and the retry succeeds. Use a paid instance for production.
 
 ### 3. Point the app at the server and deploy
 
