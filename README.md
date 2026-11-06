@@ -56,6 +56,8 @@ No extra libraries: the webhook server uses **only Node.js built-ins** (`node:ht
 
 **Where to see the result:** Admin → Orders → open an order → *Metafields* section → **Random text**. Or via GraphQL:
 
+> The admin only shows *pinned* definitions on the order page. Definitions declared in `shopify.app.toml` can't be pinned through the API (`"Definition is managed by app configuration"`), so it was pinned once from Settings → Metafields and metaobjects → Orders (pin icon in the table).
+
 ```graphql
 { order(id: "gid://shopify/Order/123") { metafield(namespace: "$app", key: "random_text") { value } } }
 ```
